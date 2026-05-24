@@ -1,0 +1,135 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Phase 3: Primitive Definition
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Identity check with bootstrapped support
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'depeng752@gmail.com' || 
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Validation Blueprint for userProfile
+    function isValidUserProfile(data) {
+      return data.uid is string && data.uid.size() <= 128 &&
+             data.email is string && data.email.size() <= 200 &&
+             data.gender is string && (data.gender == 'Male' || data.gender == 'Female') &&
+             data.age is int && data.age >= 0 && data.age <= 120 &&
+             (data.height is int || data.height is float) && data.height >= 30.0 && data.height <= 300.0 &&
+             (data.weight is int || data.weight is float) && data.weight >= 10.0 && data.weight <= 1000.0 &&
+             data.activityLevel is string && (data.activityLevel == 'Sedentary' || data.activityLevel == 'Light' || data.activityLevel == 'Moderate' || data.activityLevel == 'Active' || data.activityLevel == 'VeryActive') &&
+             data.athleteType is string && (data.athleteType == 'General Public' || data.athleteType == 'Fitness Enthusiast' || data.athleteType == 'Athlete') &&
+             data.createdAt is timestamp &&
+             data.updatedAt is timestamp;
+    }
+
+    // Validation Blueprint for historyEntry
+    function isValidHistoryEntry(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             (data.weight is int || data.weight is float) && data.weight >= 10.0 && data.weight <= 1000.0 &&
+             (data.height is int || data.height is float) && data.height >= 30.0 && data.height <= 300.0 &&
+             data.age is int && data.age >= 0 && data.age <= 120 &&
+             data.gender is string && (data.gender == 'Male' || data.gender == 'Female') &&
+             data.activityLevel is string && (data.activityLevel == 'Sedentary' || data.activityLevel == 'Light' || data.activityLevel == 'Moderate' || data.activityLevel == 'Active' || data.activityLevel == 'VeryActive') &&
+             data.athleteType is string && (data.athleteType == 'General Public' || data.athleteType == 'Fitness Enthusiast' || data.athleteType == 'Athlete') &&
+             (data.bmi is int || data.bmi is float) &&
+             (data.tdee is int || data.tdee is float) &&
+             data.createdAt is timestamp;
+    }
+
+    // Validation Blueprint for systemLog
+    function isValidSystemLog(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.type is string && data.type.size() <= 50 &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.userEmail is string && data.userEmail.size() <= 200 &&
+             data.details is string && data.details.size() <= 1000 &&
+             data.createdAt is timestamp;
+    }
+
+    // 2. User Profiles Collection
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isSignedIn() && (isOwner(userId) || request.auth.token.email == 'depeng752@gmail.com');
+      
+      allow create: if isOwner(userId) && 
+                       isValidUserProfile(incoming()) && 
+                       incoming().uid == request.auth.uid && 
+                       incoming().createdAt == request.time && 
+                       incoming().updatedAt == request.time && 
+                       incoming().email == request.auth.token.email;
+
+      // Allow updates to change physical measurements but keep identity/createdAt immutable
+      allow update: if isOwner(userId) && 
+                       isValidUserProfile(incoming()) && 
+                       incoming().uid == existing().uid && 
+                       incoming().createdAt == existing().createdAt && 
+                       incoming().updatedAt == request.time && 
+                       incoming().email == existing().email &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['gender', 'age', 'height', 'weight', 'activityLevel', 'athleteType', 'updatedAt']);
+                       
+      allow delete: if isAdmin();
+
+      // 3. User History Subcollection (Master Gate relation check to confirm parent matches)
+      match /history/{entryId} {
+        allow get: if isOwner(userId) || isAdmin();
+        allow list: if isOwner(userId) || (isSignedIn() && request.auth.token.email == 'depeng752@gmail.com');
+
+        allow create: if isOwner(userId) && 
+                         isValidHistoryEntry(incoming()) && 
+                         incoming().createdAt == request.time && 
+                         isValidId(entryId);
+
+        allow delete: if isOwner(userId) || isAdmin();
+        allow update: if false; // Logs cannot be modified once stored
+      }
+    }
+
+    // 4. Admins Collection
+    match /admins/{adminId} {
+      allow get: if isOwner(adminId) || isAdmin();
+      allow list: if isAdmin();
+      allow write: if false; // Block client writes configuration
+    }
+
+    // 5. Global Audit Logs
+    match /logs/{logId} {
+      allow get: if isAdmin();
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || request.auth.token.email == 'depeng752@gmail.com');
+      
+      allow create: if isSignedIn() && 
+                       isValidSystemLog(incoming()) && 
+                       incoming().userId == request.auth.uid && 
+                       incoming().createdAt == request.time && 
+                       incoming().userEmail == request.auth.token.email;
+                       
+      allow update, delete: if false; // System logs are write-once, read-only audit streams
+    }
+  }
+}

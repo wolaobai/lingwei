@@ -1,0 +1,169 @@
+{
+  "entities": {
+    "userProfile": {
+      "title": "UserProfile",
+      "description": "User account profile statistics and physical properties",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "The unique user ID"
+        },
+        "email": {
+          "type": "string",
+          "description": "User email address"
+        },
+        "gender": {
+          "type": "string",
+          "enum": ["Male", "Female"],
+          "description": "User physical gender"
+        },
+        "age": {
+          "type": "integer",
+          "description": "User age in years"
+        },
+        "height": {
+          "type": "number",
+          "description": "User height in cm"
+        },
+        "weight": {
+          "type": "number",
+          "description": "User weight in kg"
+        },
+        "activityLevel": {
+          "type": "string",
+          "enum": ["Sedentary", "Light", "Moderate", "Active", "VeryActive"],
+          "description": "Activity factor multiplier indicator"
+        },
+        "athleteType": {
+          "type": "string",
+          "enum": ["General Public", "Fitness Enthusiast", "Athlete"],
+          "description": "Muscle density modifier indicator"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Record creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Record update timestamp"
+        }
+      },
+      "required": ["uid", "email", "createdAt", "updatedAt"]
+    },
+    "historyEntry": {
+      "title": "HistoryEntry",
+      "description": "A single saved health calculator measurement entry",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Measurement history entry ID"
+        },
+        "weight": {
+          "type": "number",
+          "description": "Weight in kg"
+        },
+        "height": {
+          "type": "number",
+          "description": "Height in cm"
+        },
+        "age": {
+          "type": "integer",
+          "description": "Age in years"
+        },
+        "gender": {
+          "type": "string",
+          "description": "Gender"
+        },
+        "activityLevel": {
+          "type": "string",
+          "description": "Activity Level factor"
+        },
+        "athleteType": {
+          "type": "string",
+          "description": "Muscle structure modifier"
+        },
+        "bmi": {
+          "type": "number",
+          "description": "Calculated Body Mass Index"
+        },
+        "tdee": {
+          "type": "number",
+          "description": "Calculated Total Daily Energy Expenditure"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when this entry was saved"
+        }
+      },
+      "required": ["id", "weight", "height", "age", "gender", "activityLevel", "athleteType", "bmi", "tdee", "createdAt"]
+    },
+    "adminUser": {
+      "title": "AdminUser",
+      "description": "Designates whether a user UID has administrative privileges",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "The email of the admin user"
+        }
+      },
+      "required": ["email"]
+    },
+    "systemLog": {
+      "title": "SystemLog",
+      "description": "Audit and operational logs available to admin users",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "System log unique ID"
+        },
+        "type": {
+          "type": "string",
+          "description": "Event type: e.g. calculation, login, register"
+        },
+        "userId": {
+          "type": "string",
+          "description": "User UID who triggered the action"
+        },
+        "userEmail": {
+          "type": "string",
+          "description": "Email of the associated user"
+        },
+        "details": {
+          "type": "string",
+          "description": "Short summary text of the action"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Occurrence event timestamp"
+        }
+      },
+      "required": ["id", "type", "userId", "userEmail", "details", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/userProfile" },
+      "description": "Contains user bio and profiling defaults"
+    },
+    "/users/{userId}/history/{entryId}": {
+      "schema": { "$ref": "#/entities/historyEntry" },
+      "description": "Individual weight history tracking log entries and calculations for a user"
+    },
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/adminUser" },
+      "description": "Lookup registry to confirm system admin status by UID"
+    },
+    "/logs/{logId}": {
+      "schema": { "$ref": "#/entities/systemLog" },
+      "description": "Central audit and calculator logs visible to admins"
+    }
+  }
+}

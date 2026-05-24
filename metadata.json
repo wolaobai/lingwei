@@ -1,0 +1,8 @@
+{
+  "name": "FitMatrix Pro",
+  "description": "A secure health analysis dashboard designed to compute, save, and track BMI (incorporating muscular athlete offsets) and daily metabolisms (TDEE). Powered by live backend integrations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
